@@ -51,7 +51,10 @@ insert into public.products (
   original_price, selling_price, discount_type, discount_value, discount_active,
   stock, sku, tags, is_published, is_featured, rating, reviews_count
 )
-select * from (values
+select name, slug, description, short_description, specifications::jsonb, images, category_id,
+       original_price::numeric, selling_price::numeric, discount_type, discount_value::numeric, discount_active::boolean,
+       stock::int, sku, tags, is_published::boolean, is_featured::boolean, rating::numeric, reviews_count::int
+from (values
   (
     'Dr. Zain Medicated Shampoo',
     'dr-zain-medicated-shampoo',

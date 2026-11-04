@@ -6,6 +6,19 @@
 create extension if not exists "pgcrypto";
 
 -- ---------------------------------------------------------------------------
+-- admin_users (linked to Supabase auth.users) — created BEFORE is_admin()
+-- because the SQL function body is validated at creation time.
+-- ---------------------------------------------------------------------------
+create table if not exists public.admin_users (
+  id         uuid primary key references auth.users(id) on delete cascade,
+  email      text not null unique,
+  full_name  text,
+  is_active  boolean not null default true,
+  created_at timestamptz not null default now()
+);
+alter table public.admin_users enable row level security;
+
+-- ---------------------------------------------------------------------------
 -- Helper: is the current JWT user an admin?
 -- ---------------------------------------------------------------------------
 create or replace function public.is_admin()
@@ -20,6 +33,11 @@ as $$
     where au.id = auth.uid() and au.is_active = true
   );
 $$;
+
+create policy "admins read admin list"
+  on public.admin_users for select using (public.is_admin());
+create policy "admins manage admins"
+  on public.admin_users for all using (public.is_admin()) with check (public.is_admin());
 
 -- ---------------------------------------------------------------------------
 -- branding_settings (single-row table driving the whole site's identity)
@@ -98,22 +116,6 @@ create policy "contacts publicly readable"
   on public.contact_settings for select using (true);
 create policy "admins manage contacts"
   on public.contact_settings for all using (public.is_admin()) with check (public.is_admin());
-
--- ---------------------------------------------------------------------------
--- admin_users (linked to Supabase auth.users)
--- ---------------------------------------------------------------------------
-create table if not exists public.admin_users (
-  id         uuid primary key references auth.users(id) on delete cascade,
-  email      text not null unique,
-  full_name  text,
-  is_active  boolean not null default true,
-  created_at timestamptz not null default now()
-);
-alter table public.admin_users enable row level security;
-create policy "admins read admin list"
-  on public.admin_users for select using (public.is_admin());
-create policy "admins manage admins"
-  on public.admin_users for all using (public.is_admin()) with check (public.is_admin());
 
 -- ---------------------------------------------------------------------------
 -- categories & products
