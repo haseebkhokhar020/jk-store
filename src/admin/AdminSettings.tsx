@@ -179,6 +179,11 @@ function ContactsTab() {
   const [msg, setMsg] = useState('')
   const load = () => supabase.from('contact_settings').select('*').order('sort_order').then(r => setRows(r.data || []))
   useEffect(() => { load() }, [])
+  // Save the CURRENT state of a row (fixes stale-object saves on blur)
+  const saveById = (id: string) => {
+    const cur = rows.find(r => r.id === id)
+    if (cur) update(cur)
+  }
 
   const add = async (kind: 'phone' | 'whatsapp') => {
     await supabase.from('contact_settings').insert({
@@ -214,11 +219,11 @@ function ContactsTab() {
             <div><label className="mb-1 block text-xs font-bold uppercase text-neutral-400">Type</label>
               <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${row.kind === 'whatsapp' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{row.kind}</span></div>
             <div><label className="mb-1 block text-xs font-bold uppercase text-neutral-400">Label</label>
-              <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={row.label} onChange={e => update({ ...row, label: e.target.value })} onBlur={() => update(row)} /></div>
+              <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={row.label} onChange={e => setRows(rs => rs.map(r => r.id === row.id ? { ...r, label: e.target.value } : r))} onBlur={() => saveById(row.id)} /></div>
             <div><label className="mb-1 block text-xs font-bold uppercase text-neutral-400">Number (e.g. +923001234567)</label>
-              <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={row.number} onChange={e => setRows(rs => rs.map(r => r.id === row.id ? { ...r, number: e.target.value } : r))} onBlur={() => update(row)} /></div>
+              <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={row.number} onChange={e => setRows(rs => rs.map(r => r.id === row.id ? { ...r, number: e.target.value } : r))} onBlur={() => saveById(row.id)} /></div>
             <div><label className="mb-1 block text-xs font-bold uppercase text-neutral-400">Button label</label>
-              <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={row.button_label || ''} placeholder={row.kind === 'whatsapp' ? 'Order on WhatsApp' : 'Call to Order'} onChange={e => setRows(rs => rs.map(r => r.id === row.id ? { ...r, button_label: e.target.value } : r))} onBlur={() => update(row)} /></div>
+              <input className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm" value={row.button_label || ''} placeholder={row.kind === 'whatsapp' ? 'Order on WhatsApp' : 'Call to Order'} onChange={e => setRows(rs => rs.map(r => r.id === row.id ? { ...r, button_label: e.target.value } : r))} onBlur={() => saveById(row.id)} /></div>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-1.5 text-sm font-semibold"><input type="checkbox" className="h-4 w-4 accent-yellow-600" checked={row.is_enabled} onChange={e => update({ ...row, is_enabled: e.target.checked })} /> Enabled</label>
