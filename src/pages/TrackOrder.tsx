@@ -1,25 +1,33 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Loader2, PackageSearch, Truck } from 'lucide-react'
+import { History, Loader2, PackageSearch, Truck } from 'lucide-react'
 import { formatMoney } from '../lib/format'
+import { getSavedOrders, type SavedOrder } from '../lib/orders'
 import { useBranding } from '../lib/branding'
+import { useAuth } from '../lib/auth'
+import { supabase } from '../lib/supabase'
+import type { Order } from '../lib/types'
 
 const STATUS_STEPS = ['Pending', 'Confirmed', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered']
 
 export default function TrackOrder() {
   const { store } = useBranding()
+  const { session } = useAuth()
   const sym = store?.currency_symbol || 'Rs.'
-  const [orderId, setOrderId] = useState('')
-  const [phone, setPhone] = useState('')
+  const [params, setParams] = useSearchParams()
+  const [orderId, setOrderId] = useState(params.get('order') || '')
+  const [phone, setPhone] = useState(params.get('phone') || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<any>(null)
+  const [saved, setSaved] = useState<SavedOrder[]>(getSavedOrders())
+  const [accountOrders, setAccountOrders] = useState<Order[]>([])
 
-  const search = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const doSearch = async (ord: string, ph: string) => {
     setLoading(true); setError(''); setResult(null)
     try {
-      const res = await fetch(`/api/track?order=${encodeURIComponent(orderId.trim())}&phone=${encodeURIComponent(phone.trim())}`)
+      const res = await fetch(`/api/track?order=${encodeURIComponent(ord.trim())}&phone=${encodeURIComponent(ph.trim())}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Not found')
       setResult(data.order)
@@ -28,6 +36,27 @@ export default function TrackOrder() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const search = (e: React.FormEvent) => { e.preventDefault(); doSearch(orderId, phone) }
+
+  // auto-search when arriving via /track?order=...&phone=...
+  useEffect(() => {
+    const o = params.get('order'), p = params.get('phone')
+    if (o && p) { setOrderId(o); setPhone(p); doSearch(o, p) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // orders linked to the logged-in account
+  useEffect(() => {
+    if (session?.user) {
+      supabase.from('orders').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false })
+        .then(r => setAccountOrders(r.data || []))
+    }
+  }, [session])
+
+  const pick = (o: string, p: string) => {
+    setOrderId(o); setPhone(p); setParams({ order: o, phone: p }); doSearch(o, p)
   }
 
   const stepIndex = result ? STATUS_STEPS.indexOf(result.status) : -1
@@ -39,6 +68,36 @@ export default function TrackOrder() {
         <h1 className="font-display mt-4 text-4xl font-bold">Track Your Order</h1>
         <p className="mt-2 text-sm text-neutral-500">Enter your order ID and the phone number used at checkout.</p>
       </motion.div>
+
+      {/* Remembered orders on this device */}
+      {saved.length > 0 && (
+        <div className="mt-8 rounded-2xl bg-white p-5 shadow-card ring-1 ring-neutral-100">
+          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-neutral-500"><History size={14} className="brand-text" /> Your orders on this device</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {saved.map(s => (
+              <button key={s.order_number} onClick={() => pick(s.order_number, s.phone)}
+                className="rounded-full bg-cream px-4 py-2 text-xs font-bold ring-1 ring-champagne-200 transition hover:bg-champagne-100">
+                {s.order_number} · {formatMoney(s.total, sym)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Orders linked to the account */}
+      {session && accountOrders.length > 0 && (
+        <div className="mt-4 rounded-2xl bg-white p-5 shadow-card ring-1 ring-neutral-100">
+          <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Orders in your account</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {accountOrders.map(o => (
+              <button key={o.id} onClick={() => pick(o.order_number, o.phone)}
+                className="rounded-full bg-cream px-4 py-2 text-xs font-bold ring-1 ring-champagne-200 transition hover:bg-champagne-100">
+                {o.order_number} · {o.status}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <form onSubmit={search} className="mt-8 rounded-2xl bg-white p-6 shadow-card ring-1 ring-neutral-100">
         <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-neutral-500">Order ID</label>

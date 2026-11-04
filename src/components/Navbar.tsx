@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Menu, ShoppingBag, X, Phone } from 'lucide-react'
+import { Menu, ShoppingBag, User, X, Phone } from 'lucide-react'
 import { useBranding } from '../lib/branding'
 import { useCart } from '../lib/cart'
+import { useAuth } from '../lib/auth'
 import { telLink } from '../lib/format'
 
 const links = [
@@ -17,6 +18,7 @@ const links = [
 export default function Navbar() {
   const { branding, contacts } = useBranding()
   const { count } = useCart()
+  const { session, profile } = useAuth()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const loc = useLocation()
@@ -63,6 +65,12 @@ export default function Navbar() {
               <Phone size={13} className="brand-text" /> {primaryPhone.button_label || 'Call to Order'}
             </a>
           )}
+          <Link to={session ? '/account' : '/login'}
+            className="flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition hover:bg-neutral-50"
+            style={{ borderColor: 'var(--brand-primary)' }} title={session ? 'My Account' : 'Sign in'}>
+            <User size={15} className="brand-text" />
+            <span className="hidden sm:inline">{session ? (profile?.full_name?.split(' ')[0] || 'Account') : 'Sign In'}</span>
+          </Link>
           <Link to="/cart" className="relative rounded-full p-2 transition hover:bg-neutral-100" aria-label="Cart">
             <ShoppingBag size={20} />
             {count > 0 && (

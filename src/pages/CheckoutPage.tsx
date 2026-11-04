@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { CheckCircle2, Loader2, ShieldCheck } from 'lucide-react'
 import { useBranding } from '../lib/branding'
 import { useCart } from '../lib/cart'
+import { useAuth } from '../lib/auth'
 import { formatMoney } from '../lib/format'
+import { saveOrder } from '../lib/orders'
 import OrderButtons from '../components/OrderButtons'
 
 const PK_CITIES = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Sialkot', 'Gujranwala', 'Hyderabad', 'Sukkur', 'Other']
@@ -12,6 +14,7 @@ const PK_CITIES = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad',
 export default function CheckoutPage() {
   const { items, subtotal, discount, clear } = useCart()
   const { store, branding } = useBranding()
+  const { session, profile } = useAuth()
   const navigate = useNavigate()
   const sym = store?.currency_symbol || 'Rs.'
   const delivery = store?.free_delivery_threshold != null && subtotal >= Number(store.free_delivery_threshold)
@@ -19,6 +22,20 @@ export default function CheckoutPage() {
   const total = subtotal + delivery
 
   const [form, setForm] = useState({ full_name: '', phone: '', email: '', city: '', address: '', instructions: '' })
+  // Prefill from the logged-in account so returning customers don't retype
+  useEffect(() => {
+    if (session?.user) {
+      setForm(f => ({
+        full_name: f.full_name || profile?.full_name || session.user.user_metadata?.full_name || '',
+        phone: f.phone || profile?.phone || session.user.user_metadata?.phone || '',
+        email: f.email || session.user.email || '',
+        city: f.city || profile?.city || '',
+        address: f.address || profile?.address || '',
+        instructions: f.instructions,
+      }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, profile])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [placing, setPlacing] = useState(false)
   const [done, setDone] = useState<string | null>(null)
@@ -40,8 +57,10 @@ export default function CheckoutPage() {
 
     setPlacing(true)
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
       const res = await fetch('/api/checkout', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers,
         body: JSON.stringify({
           client_order_id: clientOrderId, source: 'website',
           ...form, items: items.map(i => ({ product_id: i.product.id, quantity: i.quantity })),
@@ -50,6 +69,8 @@ export default function CheckoutPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Order failed')
       clear()
+      // Remember the order on this device so the ID survives refresh
+      saveOrder({ order_number: data.order_number, phone: form.phone.trim(), total: data.total, at: new Date().toISOString() })
       setDone(data.order_number)
     } catch (err: any) {
       setErrors({ form: err?.message || 'Something went wrong. Please try again or order via WhatsApp.' })
@@ -67,10 +88,13 @@ export default function CheckoutPage() {
         <h1 className="font-display mt-6 text-3xl font-bold">Order Placed Successfully!</h1>
         <p className="mt-3 text-sm text-neutral-600">
           Your order ID is <span className="font-mono font-bold brand-text">{done}</span>.
-          {form.email && ' A confirmation email has been sent to you.'} Keep it to track your order.
+          {form.email && ' A confirmation email with full product details has been sent to you.'}
+        </p>
+        <p className="mt-2 rounded-lg bg-champagne-50 p-2.5 text-xs text-champagne-800">
+          ✓ This order is saved on this device — you can find it anytime on the Track Order page, even after refresh.
         </p>
         <div className="mt-8 flex justify-center gap-4">
-          <button onClick={() => navigate(`/track`)} className="rounded-full px-7 py-3 text-sm font-bold text-white"
+          <button onClick={() => navigate(`/track?order=${done}&phone=${encodeURIComponent(form.phone.trim())}`)} className="rounded-full px-7 py-3 text-sm font-bold text-white"
             style={{ backgroundColor: 'var(--brand-secondary)' }}>Track Order</button>
           <Link to="/shop" className="rounded-full border px-7 py-3 text-sm font-semibold">Continue Shopping</Link>
         </div>

@@ -32,6 +32,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const supa = adminClient()
 
+    // If the customer is logged in, verify their JWT and link the order to their account
+    let userId: string | null = null
+    const authHeader = String(req.headers.authorization || '')
+    if (authHeader.startsWith('Bearer ')) {
+      const { data: ud } = await supa.auth.getUser(authHeader.slice(7))
+      if (ud?.user) userId = ud.user.id
+    }
+
     // Idempotency: a retry with the same client_order_id returns the existing order.
     const { data: existing } = await supa.from('orders').select('id, order_number').eq('client_order_id', clientOrderId).maybeSingle()
     if (existing) return json(res, 200, { ok: true, order_number: existing.order_number, duplicate: true })
@@ -75,18 +83,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       customerId = cust.id
       await supa.from('customers').update({
         full_name: fullName, email: email ?? undefined, city: city || null, address: address || null,
-        total_orders: (cust as any).total_orders ?? 0, updated_at: new Date().toISOString(),
+        user_id: userId ?? (cust as any).user_id ?? null, updated_at: new Date().toISOString(),
       }).eq('id', cust.id)
     } else {
       const { data: nc, error: ncErr } = await supa.from('customers').insert({
-        full_name: fullName, phone, email, city: city || null, address: address || null,
+        full_name: fullName, phone, email, city: city || null, address: address || null, user_id: userId,
       }).select('id').single()
       if (ncErr) throw ncErr
       customerId = nc.id
     }
 
     const { data: order, error: oErr } = await supa.from('orders').insert({
-      order_number: orderNumber, client_order_id: clientOrderId, customer_id: customerId,
+      order_number: orderNumber, client_order_id: clientOrderId, customer_id: customerId, user_id: userId,
       full_name: fullName, phone, email, city: city || null, address, instructions,
       source, status: 'Pending', payment_method: 'COD',
       subtotal, discount_total: discountTotal, delivery_charge: delivery, total,

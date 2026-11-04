@@ -10,6 +10,9 @@ import CheckoutPage from './pages/CheckoutPage'
 import TrackOrder from './pages/TrackOrder'
 import About from './pages/About'
 import Contact from './pages/Contact'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import Account from './pages/Account'
 import NotFound from './pages/NotFound'
 import AdminLogin from './admin/AdminLogin'
 import AdminLayout from './admin/AdminLayout'
@@ -36,6 +39,9 @@ export default function App() {
               <Route path="/cart" element={<CartPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/track" element={<TrackOrder />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/account" element={<Account />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="*" element={<NotFound />} />

@@ -7,8 +7,18 @@ if (!url || !anon) {
   console.warn('[jk-store] Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY — set them in .env')
 }
 
+// "Remember me" support: the auth session is persisted in localStorage when
+// remember=1 (default) and only in sessionStorage (tab) when remember=0.
+const remember = () => (localStorage.getItem('jk-remember') ?? '1') === '1'
+const sessionStore = () => (remember() ? localStorage : sessionStorage)
+const rememberStorage = {
+  getItem: (key: string) => sessionStore().getItem(key) ?? localStorage.getItem(key),
+  setItem: (key: string, value: string) => { sessionStore().setItem(key, value) },
+  removeItem: (key: string) => { localStorage.removeItem(key); sessionStorage.removeItem(key) },
+}
+
 // Public client. Only the ANON key is used here; all writes that matter go
 // through serverless functions with the service role key.
 export const supabase = createClient(url || 'https://placeholder.supabase.co', anon || 'placeholder', {
-  auth: { persistSession: true, autoRefreshToken: true },
+  auth: { persistSession: true, autoRefreshToken: true, storage: rememberStorage },
 })
