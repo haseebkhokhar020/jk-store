@@ -1,7 +1,7 @@
 // POST /api/retry-email { notification_id } — admin-only retry of a failed email.
 // Verified against Supabase auth: caller must be an active admin.
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { adminClient, cors, json, sendResendEmail } from './_shared'
+import { adminClient, cors, json, sendResendEmail } from './_shared.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   cors(res)

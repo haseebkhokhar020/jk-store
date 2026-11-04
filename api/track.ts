@@ -2,7 +2,7 @@
 // Uses the security-definer RPC that matches BOTH order number and phone,
 // so one customer can never see another customer's order.
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { adminClient, cors, json } from './_shared'
+import { adminClient, cors, json } from './_shared.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   cors(res)

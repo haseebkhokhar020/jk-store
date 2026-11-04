@@ -4,7 +4,7 @@
 // - Creates/updates customer, order, order_items (price snapshots), status history
 // - Triggers admin + customer email notifications via Resend
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { adminClient, cors, finalUnitPrice, genOrderNumber, json, sendResendEmail } from './_shared'
+import { adminClient, cors, finalUnitPrice, genOrderNumber, json, sendResendEmail } from './_shared.js'
 
 type Item = { product_id: string; quantity: number }
 
